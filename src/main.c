@@ -1,9 +1,22 @@
+/* WADUZITDO to NASM compiler
+ * released under the UNLICENSE software license
+ * (c) lasermtv07,2024
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
+//dont use windows, untested
+#ifdef WIN32
+#include <io.h>
+#define F_OK 0
+#define access _access
+#endif
+//---
 #include "structs.c"
 #include "parser.c"
+#include "cli.c"
 
 char* itoa(int n){
 	char*m=malloc(64);
@@ -39,12 +52,15 @@ char* removeNewlinesAndEscape(char* n){
 
 
 int main(int argc,char**argv){
-	if(argc<2){
-		printf("Error: must enter a filename!\n");
-		return 0;
+	struct cli a;
+	parseCLI(&a,argc,argv);
+	if(access(a.input,F_OK)!=0){
+		printf("Error: file does not exist!\n");
+		exit(0);
 	}
+
 	struct command t;
-	FILE* prog=fopen(argv[1],"r");
+	FILE* prog=fopen(a.input,"r");
 	char buff[10240];
 
 	//variables regarding the DATA section (constants)
@@ -170,17 +186,18 @@ int main(int argc,char**argv){
 		}
 
 	}
-				final=realloc(final,strlen(final)+strlen(currentContext)+1024);
-				if(jplabels==0){
-					strcat(final,"global _start\n_start:");
-					strcat(final,currentContext);
-				}
-				else {
-					sprintf(final,"%s\njp%u:%s",final,jplabels,currentContext);
-				}
-				strcpy(currentContext,"");
-				currentContext=realloc(currentContext,1024);
-				jplabels++;
-	printf("SECTION .data\n%s\n%s\nSECTION .text\n%s\n%s",data,bss,functions,final);
+	final=realloc(final,strlen(final)+strlen(currentContext)+1024);
+	if(jplabels==0){
+		strcat(final,"global _start\n_start:");
+		strcat(final,currentContext);
+	}
+	else {
+			sprintf(final,"%s\njp%u:%s",final,jplabels,currentContext);
+	}
+	strcpy(currentContext,"");
+	currentContext=realloc(currentContext,1024);
+	jplabels++;
+	FILE* wr=fopen(a.output,"w");
+	fprintf(wr,"SECTION .data\n%s\n%s\nSECTION .text\n%s\n%s",data,bss,functions,final);
 	return 0;
 }
